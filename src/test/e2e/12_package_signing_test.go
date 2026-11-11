@@ -99,4 +99,33 @@ func TestPackageSigning(t *testing.T) {
 		stdOut, stdErr, err = e2e.Zarf(t, "package", "verify", source, "--key", filepath.Join("src", "test", "packages", "zarf-test.pub"), "--plain-http")
 		require.NoError(t, err, stdOut, stdErr)
 	})
+
+	t.Run("Inspect package signature", func(t *testing.T) {
+		tmpdir := t.TempDir()
+		testCreate := filepath.Join("src", "test", "packages", "12-package-signing")
+		testPath := filepath.Join(tmpdir, fmt.Sprintf("zarf-package-basic-signing-%s.tar.zst", e2e.Arch))
+
+		// create package without signing
+		stdOut, stdErr, err := e2e.Zarf(t, "package", "create", testCreate, "-o", tmpdir)
+		require.NoError(t, err, stdOut, stdErr)
+
+		// inspect unsigned package (should fail)
+		stdOut, stdErr, err = e2e.Zarf(t, "package", "inspect", "signature", testPath)
+		require.Error(t, err, stdOut, stdErr)
+		require.Contains(t, stdErr, "package is not signed")
+
+		// sign the package
+		stdOut, stdErr, err = e2e.Zarf(t, "package", "sign", testPath, "--signing-key", filepath.Join("src", "test", "packages", "zarf-test.prv-key"))
+		require.NoError(t, err, stdOut, stdErr)
+
+		// inspect signature metadata
+		stdOut, stdErr, err = e2e.Zarf(t, "package", "inspect", "signature", testPath)
+		require.NoError(t, err, stdOut, stdErr)
+		require.Contains(t, stdOut, "method: key")
+
+		// inspect signature with --raw flag
+		stdOut, stdErr, err = e2e.Zarf(t, "package", "inspect", "signature", testPath, "--raw")
+		require.NoError(t, err, stdOut, stdErr)
+		require.NotEmpty(t, stdOut)
+	})
 }
