@@ -193,6 +193,66 @@ func TestFindPodContainerPort(t *testing.T) {
 			},
 			expectedPort: 8080,
 		},
+		{
+			name: "no pods found matching selector",
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "app-ns",
+					Name:      "web",
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{"app": "web"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromString("http"),
+						},
+					},
+				},
+			},
+			expectedErr: "no pods found for service app-ns/web",
+		},
+		{
+			name: "no matching container port on pod",
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "app-ns",
+					Name:      "web",
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{"app": "web"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromString("http"),
+						},
+					},
+				},
+			},
+			pods: []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "app-ns",
+						Name:      "web-ui",
+						Labels:    map[string]string{"app": "web"},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "server",
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "metrics",
+										ContainerPort: 9090,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "target port http not found in pods for service app-ns/web",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
